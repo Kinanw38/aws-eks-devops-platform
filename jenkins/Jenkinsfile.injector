@@ -1,0 +1,41 @@
+pipeline {
+    agent {
+        kubernetes {
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: kubectl
+    image: bitnami/kubectl:latest
+    command: ['cat']
+    tty: true
+'''
+        }
+    }
+    parameters {
+        string(name: 'FILE_NAME', defaultValue: 'config.json', description: 'Name of the injected file')
+        text(name: 'FILE_CONTENT', defaultValue: '{"status": "injected_by_jenkins", "timestamp": "now"}', description: 'Content of the file to inject')
+    }
+    stages {
+        stage('Inject File via ConfigMap') {
+            steps {
+                container('kubectl') {
+                    withEnv(["FNAME=${params.FILE_NAME}", "FCONTENT=${params.FILE_CONTENT}"]) {
+                        sh '''
+                            # כתיבת תוכן הקובץ בצורה נקי ומוגנת מפני מירכאות ותווים מיוחדים
+                            printf '%s' "$FCONTENT" > "/tmp/$FNAME"
+
+                            # עדכון ה-ConfigMap ב-Kubernetes
+                            kubectl create configmap injected-config --from-file="$FNAME"=/tmp/"$FNAME" -n devops --dry-run=client -o yaml | kubectl apply -f -
+
+                            # רענון הפודים כדי שטעינת הקובץ החדש תתבצע מיידית
+                            kubectl rollout restart deployment/devops-rest-api -n devops
+                            kubectl rollout status deployment/devops-rest-api -n devops
+                        '''
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,40 @@
+pipeline {
+    agent {
+        kubernetes {
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: kubectl
+    image: bitnami/kubectl:latest
+    command: ['cat']
+    tty: true
+'''
+        }
+    }
+    parameters {
+        string(name: 'REPLICAS', defaultValue: '2', description: 'Number of replicas for deployment')
+        string(name: 'IMAGE_TAG', defaultValue: 'v8.0.0', description: 'Docker image tag to deploy')
+    }
+    stages {
+        stage('Update Replicas & Tag') {
+            steps {
+                container('kubectl') {
+                    withEnv(["REPLICAS=${params.REPLICAS}", "IMAGE_TAG=${params.IMAGE_TAG}"]) {
+                        sh '''
+                            echo "Updating HPA minReplicas and scaling deployment to ${REPLICAS}..."
+                            kubectl patch hpa devops-rest-api-hpa -n devops --type='json' -p="[{\"op\": \"replace\", \"path\": \"/spec/minReplicas\", \"value\": ${REPLICAS}}]" || true
+                            kubectl scale deployment/devops-rest-api --replicas=${REPLICAS} -n devops
+
+                            echo "Updating image tag to ${IMAGE_TAG}..."
+                            kubectl set image deployment/devops-rest-api rest-api=ronkdev/devops-rest-api:${IMAGE_TAG} -n devops
+
+                            kubectl rollout status deployment/devops-rest-api -n devops
+                        '''
+                    }
+                }
+            }
+        }
+    }
+}

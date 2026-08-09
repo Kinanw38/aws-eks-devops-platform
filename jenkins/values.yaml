@@ -1,0 +1,106 @@
+controller:
+  componentName: "jenkins-controller"
+  image:
+    registry: "docker.io"
+    repository: "jenkins/jenkins"
+    tag: "lts"
+  serviceType: "ClusterIP"
+  jenkinsUriPrefix: "/jenkins"
+
+  javaOpts: "-Djenkins.install.runSetupWizard=false"
+
+  resources:
+    requests:
+      cpu: "300m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1536Mi"
+
+  installPlugins:
+    - "kubernetes"
+    - "git"
+    - "configuration-as-code"
+    - "workflow-aggregator"
+    - "pipeline-stage-view"
+    - "job-dsl"
+
+  persistence:
+    enabled: false
+
+  JCasC:
+    enabled: true
+    defaultConfig: true
+    configScripts:
+      credentials-config: |
+        credentials:
+          system:
+            domainCredentials:
+              - credentials:
+                  - usernamePassword:
+                      scope: GLOBAL
+                      id: "dockerhub-credentials"
+                      username: "${DOCKER_HUB_USER}"
+                      password: "${DOCKER_HUB_PAT}"
+                      description: "Docker Hub Credentials"
+      jobs-config: |
+        jobs:
+          - script: |
+              def gitRepo = System.getenv('GIT_REPO_URL')
+              pipelineJob('1-CI-CD-Pipeline') {
+                definition {
+                  cpsScm {
+                    scm {
+                      git {
+                        remote { url(gitRepo) }
+                        branch('main')
+                      }
+                    }
+                    scriptPath('jenkins/Jenkinsfile.cicd')
+                  }
+                }
+              }
+              pipelineJob('2-Replica-Scaling-Pipeline') {
+                definition {
+                  cpsScm {
+                    scm {
+                      git {
+                        remote { url(gitRepo) }
+                        branch('main')
+                      }
+                    }
+                    scriptPath('jenkins/Jenkinsfile.replicas')
+                  }
+                }
+              }
+              pipelineJob('3-File-Injector-Pipeline') {
+                definition {
+                  cpsScm {
+                    scm {
+                      git {
+                        remote { url(gitRepo) }
+                        branch('main')
+                      }
+                    }
+                    scriptPath('jenkins/Jenkinsfile.injector')
+                  }
+                }
+              }
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  name: "jenkins"
+
+agent:
+  enabled: true
+  defaultsProviderTemplate: "default"
+  templates:
+    default:
+      name: "k8s-agent"
+      label: "jenkins-agent"
+      workspaceVolume:
+        emptyDirWorkspaceVolume:
+          memory: false

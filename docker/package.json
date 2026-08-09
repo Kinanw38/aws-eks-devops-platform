@@ -1,0 +1,12 @@
+{
+  "name": "devops-rest-api",
+  "version": "1.0.0",
+  "description": "Production REST API for DevOps Assignment",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

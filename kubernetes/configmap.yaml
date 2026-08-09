@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: injected-config
+  namespace: devops
+data:
+  injected.txt: "Hello from Kubernetes ConfigMap! Injected successfully."

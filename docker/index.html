@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentinelOps Enterprise Console</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&family=Heebo:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0b0e14;
+            --surface: #121721;
+            --surface-card: #18202e;
+            --border: rgba(255,255,255,0.08);
+            --border-hover: rgba(255,255,255,0.18);
+            --text-main: #e2e8f0;
+            --text-muted: #64748b;
+            --accent: #38bdf8;
+            --status-green: #10b981;
+            --status-amber: #f59e0b;
+            --status-red: #ef4444;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Heebo', sans-serif; }
+        body { background: var(--bg); color: var(--text-main); min-height: 100vh; padding: 2rem; overflow-x: hidden; padding-bottom: 5rem; }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+        .brand { display: flex; align-items: center; gap: 1rem; }
+        .logo-icon { width: 44px; height: 44px; background: var(--surface-card); border: 1px solid var(--border); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .brand-text h1 { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.3px; }
+        .brand-text p { font-size: 0.8rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+        .header-actions { display: flex; align-items: center; gap: 1rem; }
+        .status-badge { display: flex; align-items: center; gap: 0.6rem; background: rgba(16,185,129,0.05); border: 1px solid rgba(16,185,129,0.2); padding: 0.4rem 0.9rem; border-radius: 20px; font-size: 0.8rem; color: var(--status-green); font-family: 'JetBrains Mono', monospace; transition: all 0.3s; }
+        .status-badge.offline { background: rgba(239,68,68,0.05); border-color: rgba(239,68,68,0.2); color: var(--status-red); }
+        .pulse-dot { width: 7px; height: 7px; background: var(--status-green); border-radius: 50%; box-shadow: 0 0 8px var(--status-green); animation: pulse 1.5s infinite; flex-shrink: 0; }
+        .status-badge.offline .pulse-dot { background: var(--status-red); box-shadow: 0 0 8px var(--status-red); animation: none; }
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.3;transform:scale(1.2)} }
+
+        .tabs { display: flex; gap: 0.4rem; margin-bottom: 2rem; background: var(--surface); padding: 0.3rem; border-radius: 10px; border: 1px solid var(--border); }
+        .tab-btn { flex: 1; padding: 0.75rem 1rem; border: none; background: transparent; color: var(--text-muted); font-size: 0.88rem; font-weight: 600; border-radius: 7px; cursor: pointer; transition: 0.2s; }
+        .tab-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.02); }
+        .tab-btn.active { background: var(--surface-card); color: var(--text-main); border: 1px solid var(--border); }
+
+        .section { display: none; background: var(--surface); border-radius: 14px; padding: 1.8rem; border: 1px solid var(--border); }
+        .section.active { display: block; }
+        .section-header { margin-bottom: 1.8rem; }
+        .section-header h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.3rem; }
+        .section-header p { color: var(--text-muted); font-size: 0.85rem; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; margin-bottom: 1.8rem; }
+        .card { background: var(--surface-card); padding: 1.2rem; border-radius: 10px; border: 1px solid var(--border); }
+        .card h4 { color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; margin-bottom: 0.5rem; }
+        .card .val { font-size: 1.25rem; font-weight: 700; color: var(--text-main); font-family: 'JetBrains Mono', monospace; word-break: break-all; }
+        .progress-bar { width: 100%; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; margin-top: 0.8rem; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--status-green); width: 100%; transition: width 0.5s ease, background 0.3s; }
+
+        .pods-section-label { font-size: 0.72rem; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; color: var(--text-muted); margin-bottom: 0.8rem; letter-spacing: 0.05em; }
+        .pods-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.9rem; margin-bottom: 1.8rem; }
+
+        .pod-card { background: var(--surface-card); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .pod-card:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+        .pod-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--status-green); transition: background 0.3s; }
+        .pod-card.pod-offline::before { background: var(--status-red); }
+        .pod-card.pod-stress::before { background: var(--status-amber); }
+        .pod-card.pod-stress { border-color: rgba(245,158,11,0.4); animation: stressPulse 1.5s infinite alternate; }
+        @keyframes stressPulse { from { box-shadow: 0 0 4px rgba(245,158,11,0.1); } to { box-shadow: 0 0 12px rgba(245,158,11,0.3); } }
+
+        .pod-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.9rem; }
+        .pod-name { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--accent); font-weight: 500; word-break: break-all; line-height: 1.4; }
+        .pod-status-pill { font-size: 0.65rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 20px; flex-shrink: 0; }
+        [dir="rtl"] .pod-status-pill { margin-right: 0.5rem; }
+        [dir="ltr"] .pod-status-pill { margin-left: 0.5rem; }
+        .pill-up { background: rgba(16,185,129,0.12); color: var(--status-green); border: 1px solid rgba(16,185,129,0.25); }
+        .pill-down { background: rgba(239,68,68,0.12); color: var(--status-red); border: 1px solid rgba(239,68,68,0.25); }
+        .pill-stress { background: rgba(245,158,11,0.12); color: var(--status-amber); border: 1px solid rgba(245,158,11,0.25); }
+
+        .pod-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .pod-metric { background: rgba(255,255,255,0.02); border-radius: 6px; padding: 0.5rem 0.6rem; }
+        .pod-metric-label { font-size: 0.62rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; }
+        .pod-metric-val { font-size: 0.88rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--text-main); margin-top: 0.15rem; }
+
+        .pod-mem-bar { margin-top: 0.7rem; }
+        .pod-mem-bar-label { display: flex; justify-content: space-between; font-size: 0.62rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.3rem; }
+        .pod-mem-track { height: 3px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; }
+        .pod-mem-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease, background 0.3s; }
+
+        .live-panel { display: none; border-radius: 10px; padding: 1.2rem; margin-bottom: 1.2rem; border: 1px solid var(--border); background: var(--surface-card); }
+        .live-panel.active { display: block; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; }
+        .panel-timer { font-size: 1rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+        .panel-bar-container { width: 100%; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; margin-top: 0.5rem; }
+        .panel-bar-fill { height: 100%; width: 0%; transition: width 0.2s linear; }
+
+        .btn-group { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1.5rem; }
+        .btn { background: var(--surface-card); border: 1px solid var(--border); color: var(--text-main); padding: 0.65rem 1.1rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease; }
+        .btn:hover { border-color: var(--border-hover); background: rgba(255,255,255,0.04); }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+        .btn code { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--accent); background: rgba(0,0,0,0.3); padding: 0.15rem 0.4rem; border-radius: 4px; }
+
+        .console-container { background: #07090e; border-radius: 10px; border: 1px solid var(--border); overflow: hidden; margin-top: 1rem; }
+        .console-header { background: rgba(255,255,255,0.02); padding: 0.6rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.78rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+        .console-body { padding: 1.2rem; }
+        .kv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem; width: 100%; }
+        .kv-item { background: rgba(255,255,255,0.015); border: 1px solid var(--border); padding: 0.7rem; border-radius: 6px; }
+        .kv-key { font-size: 0.68rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; }
+        .kv-val { font-size: 0.85rem; color: var(--text-main); font-family: 'JetBrains Mono', monospace; word-break: break-all; margin-top: 0.2rem; }
+        .code-safe-block { direction: ltr; text-align: left; background: #04060a; border: 1px solid var(--border); padding: 1rem; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #94a3b8; white-space: pre-wrap; word-break: break-all; max-height: 280px; overflow-y: auto; }
+
+        #toast-container { position: fixed; top: 20px; left: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+        [dir="rtl"] #toast-container { left: auto; right: 20px; }
+        .toast-item { background: var(--surface-card); border: 1px solid var(--border); color: var(--text-main); padding: 0.7rem 1rem; border-radius: 10px; font-size: 0.84rem; box-shadow: 0 8px 30px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 0.55rem; pointer-events: auto; max-width: 310px; position: relative; overflow: hidden; animation: toastIn 0.3s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .toast-item.toast-exit { animation: toastOut 0.28s ease forwards; }
+        [dir="rtl"] .toast-item { animation-name: toastInRtl; }
+        [dir="rtl"] .toast-item.toast-exit { animation-name: toastOutRtl; }
+        @keyframes toastIn    { from{opacity:0;transform:translateX(-14px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes toastOut   { from{opacity:1;transform:translateX(0)}     to{opacity:0;transform:translateX(-14px)} }
+        @keyframes toastInRtl { from{opacity:0;transform:translateX(14px)}  to{opacity:1;transform:translateX(0)} }
+        @keyframes toastOutRtl{ from{opacity:1;transform:translateX(0)}     to{opacity:0;transform:translateX(14px)} }
+        .toast-bar { position: absolute; bottom: 0; left: 0; height: 2px; background: rgba(255,255,255,0.13); animation: toastBar 3s linear forwards; }
+        @keyframes toastBar { from{width:100%} to{width:0%} }
+
+        .action-log-drawer { position: fixed; bottom: 20px; right: 20px; z-index: 990; }
+        [dir="ltr"] .action-log-drawer { right: auto; left: 20px; }
+        .log-toggle-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-main); padding: 0.6rem 1.1rem; border-radius: 20px; cursor: pointer; font-size: 0.8rem; font-family: 'JetBrains Mono', monospace; display: flex; align-items: center; gap: 0.5rem; }
+        .log-content { display: none; position: absolute; bottom: 50px; right: 0; width: 340px; max-height: 220px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.8rem; overflow-y: auto; }
+        [dir="ltr"] .log-content { right: auto; left: 0; }
+        .log-content.open { display: block; }
+        .log-entry { padding-bottom: 0.3rem; border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; margin-bottom: 0.3rem; }
+    </style>
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="container">
+    <header>
+        <div class="brand">
+            <div class="logo-icon">🛡️</div>
+            <div class="brand-text">
+                <h1>SentinelOps</h1>
+                <p>ENTERPRISE CLUSTER MANAGEMENT</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <div class="status-badge" id="status-badge"><div class="pulse-dot"></div><span id="t-status">SYSTEM ONLINE</span></div>
+            <button class="btn" style="padding:0.4rem 0.8rem;font-size:0.78rem;" onclick="toggleLanguage()">🌐 Language</button>
+        </div>
+    </header>
+
+    <nav class="tabs">
+        <button class="tab-btn active" onclick="switchTab('health',this)" data-i18n="tab_health">תקינות מערכת</button>
+        <button class="tab-btn" onclick="switchTab('api',this)">REST API Studio</button>
+        <button class="tab-btn" onclick="switchTab('jenkins',this)">Jenkins ConfigMap</button>
+        <button class="tab-btn" onclick="switchTab('monitoring',this)">Prometheus Metrics</button>
+    </nav>
+
+    <div id="health" class="section active">
+        <div class="section-header">
+            <h2 data-i18n="health_title">ניטור רשת ואשכול K8s בלייב</h2>
+            <p data-i18n="health_sub">בדיקה בזמן אמת של כל ה-Pods הפעילים, ניצול הזיכרון והזמינות המערכתית.</p>
+        </div>
+        <div class="grid">
+            <div class="card">
+                <h4 data-i18n="card_cluster_health">CLUSTER HEALTH</h4>
+                <div class="val" id="val-score" style="color:var(--status-green)">100%</div>
+                <div class="progress-bar"><div class="progress-fill" id="score-bar"></div></div>
+            </div>
+            <div class="card">
+                <h4 data-i18n="card_pods_healthy">PODS HEALTHY / TOTAL</h4>
+                <div class="val" id="val-pods-ratio">—</div>
+            </div>
+            <div class="card">
+                <h4 data-i18n="card_avg_mem">AVG MEMORY HEAP</h4>
+                <div class="val" id="val-mem">— MB</div>
+            </div>
+            <div class="card">
+                <h4 data-i18n="last_refresh">LAST REFRESH</h4>
+                <div class="val" id="val-last-refresh" style="font-size:0.95rem">—</div>
+            </div>
+        </div>
+        <div class="pods-section-label" data-i18n="pod_fleet_label">POD FLEET — LIVE STATUS</div>
+        <div class="pods-grid" id="pods-grid"></div>
+        <div id="stress-panel" class="live-panel">
+            <div class="panel-header">
+                <div>
+                    <strong style="color:var(--status-amber);font-size:0.9rem;" data-i18n="stress_title">🔥 עומס מעבד פעיל (CPU Spike)</strong>
+                    <p style="font-size:0.78rem;color:var(--text-muted)" data-i18n="stress_sub">מזריק עומס חישובי לבדיקת Auto-scaling</p>
+                </div>
+                <div class="panel-timer" style="color:var(--status-amber)" id="stress-timer">08s</div>
+            </div>
+            <div class="panel-bar-container"><div class="panel-bar-fill" id="stress-bar-fill" style="background:var(--status-amber)"></div></div>
+        </div>
+        <div id="chaos-panel" class="live-panel">
+            <div class="panel-header">
+                <div>
+                    <strong style="color:var(--status-red);font-size:0.9rem;" data-i18n="chaos_title">💥 אירוע Chaos: Pod נפל</strong>
+                    <p style="font-size:0.78rem;color:var(--text-muted)" data-i18n="chaos_sub">ממתין להתאוששות אוטומטית (Self-Healing) מ-Kubernetes</p>
+                </div>
+                <div class="panel-timer" style="color:var(--status-red)" id="chaos-timer">08s</div>
+            </div>
+            <div class="panel-bar-container"><div class="panel-bar-fill" id="chaos-bar-fill" style="background:var(--status-red)"></div></div>
+        </div>
+        <div class="btn-group">
+            <button class="btn" id="btn-refresh" onclick="refreshAll()" data-i18n="btn_refresh">⚡ רענן נתונים</button>
+            <button class="btn" id="btn-stress" onclick="startStressTest()" data-i18n="btn_stress">🔥 סימולציית עומס (Stress)</button>
+            <button class="btn" id="btn-chaos" onclick="simulateChaos()" data-i18n="btn_chaos">💥 הפלת Pod בלייב (Chaos)</button>
+        </div>
+    </div>
+
+    <div id="api" class="section">
+        <div class="section-header">
+            <h2>REST API Studio</h2>
+            <p data-i18n="api_sub">אימות נתונים ישיר מול ה-Endpoints השונים בשרת.</p>
+        </div>
+        <div class="btn-group">
+            <button class="btn" onclick="callApi('/api')"><code>GET</code> /api</button>
+            <button class="btn" onclick="callApi('/health')"><code>GET</code> /health</button>
+            <button class="btn" onclick="callApi('/injected-file')"><code>GET</code> /injected-file</button>
+            <button class="btn" onclick="callApi('/metrics')"><code>GET</code> /metrics</button>
+        </div>
+        <div class="console-container">
+            <div class="console-header">API RESPONSE</div>
+            <div class="console-body" id="api-output"><p style="color:var(--text-muted);font-size:0.85rem" data-i18n="api_placeholder">בחר Endpoint לבדיקה...</p></div>
+        </div>
+    </div>
+
+    <div id="jenkins" class="section">
+        <div class="section-header">
+            <h2>Jenkins ConfigMap Explorer</h2>
+            <p data-i18n="jenkins_sub">אימות הקבצים והקונפיגורציות המוזרקות מצינור ה-CI/CD.</p>
+        </div>
+        <button class="btn" onclick="fetchInjectedFile()" data-i18n="btn_jenkins">🔍 בדוק קובץ מוזרק</button>
+        <div class="console-container">
+            <div class="console-header">INJECTED CONFIG</div>
+            <div class="console-body" id="jenkins-output"><p style="color:var(--text-muted);font-size:0.85rem" data-i18n="jenkins_placeholder">לחץ לבדיקת קובץ מוזרק...</p></div>
+        </div>
+    </div>
+
+    <div id="monitoring" class="section">
+        <div class="section-header">
+            <h2>Prometheus Metrics</h2>
+            <p data-i18n="monitoring_sub">תצוגת המטריקות הגולמיות הנחשפות לפורטל הניטור.</p>
+        </div>
+        <button class="btn" onclick="fetchMetrics()" data-i18n="btn_metrics">📈 משוך metrics</button>
+        <div class="console-container">
+            <div class="console-header">PROMETHEUS METRICS</div>
+            <div class="console-body" id="metrics-output"><p style="color:var(--text-muted);font-size:0.85rem" data-i18n="metrics_placeholder">לחץ למשיכת מטריקות...</p></div>
+        </div>
+    </div>
+</div>
+
+<div class="action-log-drawer">
+    <button class="log-toggle-btn" onclick="toggleActionLog()">
+        <span>📜 Logs</span>
+        <span style="background:rgba(255,255,255,0.08);padding:1px 6px;border-radius:8px" id="log-count">0</span>
+    </button>
+    <div class="log-content" id="log-content"><div id="log-entries"></div></div>
+</div>
+
+<script>
+    // ─── STATE ───────────────────────────────────────────────────────────────
+    let actionLogs         = [];
+    let knownPods          = {};
+    let podMissCount       = {};
+    let currentOfflinePods = new Set();  // FIX-2: persist for language-switch re-renders
+    let isStressActive     = false;
+    let stressTimerId      = null;
+    let chaosTimerId       = null;
+    let currentStatusKey   = 'online';
+    let _refreshPromise    = null;       // FIX-1: promise coalescing
+
+    const PROBE_COUNT = 8;
+    const POD_TTL     = 10;
+
+    // ─── I18N ────────────────────────────────────────────────────────────────
+    const TRANSLATIONS = {
+        he: {
+            tab_health:'תקינות מערכת', health_title:'ניטור רשת ואשכול K8s בלייב',
+            health_sub:'בדיקה בזמן אמת של כל ה-Pods הפעילים, ניצול הזיכרון והזמינות המערכתית.',
+            card_cluster_health:'תקינות אשכול', card_pods_healthy:'PODS תקינים / סה"כ',
+            card_avg_mem:'ממוצע זיכרון HEAP', last_refresh:'רענון אחרון',
+            pod_fleet_label:'צי PODS — סטטוס חי',
+            stress_title:'🔥 עומס מעבד פעיל (CPU Spike)', stress_sub:'מזריק עומס חישובי לבדיקת Auto-scaling',
+            chaos_title:'💥 אירוע Chaos: Pod נפל', chaos_sub:'ממתין להתאוששות אוטומטית (Self-Healing) מ-Kubernetes',
+            btn_refresh:'⚡ רענן נתונים', btn_stress:'🔥 סימולציית עומס (Stress)', btn_chaos:'💥 הפלת Pod בלייב (Chaos)',
+            api_sub:'אימות נתונים ישיר מול ה-Endpoints השונים בשרת.', api_placeholder:'בחר Endpoint לבדיקה...',
+            jenkins_sub:'אימות הקבצים והקונפיגורציות המוזרקות מצינור ה-CI/CD.',
+            btn_jenkins:'🔍 בדוק קובץ מוזרק', jenkins_placeholder:'לחץ לבדיקת קובץ מוזרק...',
+            monitoring_sub:'תצוגת המטריקות הגולמיות הנחשפות לפורטל הניטור.',
+            btn_metrics:'📈 משוך metrics', metrics_placeholder:'לחץ למשיכת מטריקות...',
+            status_online:'SYSTEM ONLINE', status_offline:'SYSTEM OFFLINE',
+            status_degraded:'DEGRADED', status_crashed:'POD CRASHED',
+            no_pods_msg:'אין Pods זמינים כרגע...',
+            toast_no_pods:'לא ניתן להגיע לאף Pod', toast_pods_found:'נמצאו {count} Pods פעילים',
+            toast_stress_start:'סימולציית עומס CPU הופעלה למשך 8 שניות', toast_stress_end:'סימולציית העומס הסתיימה',
+            toast_chaos_start:'פקודת התאבדות נשלחה ל-Pod!',
+            toast_api_call:'בוצעה קריאה ל-{path}', toast_api_err:'שגיאה בגישה ל-{path}',
+            toast_jenkins_ok:'קובץ מוזרק נטען בהצלחה', toast_jenkins_err:'שגיאה בטעינת הקובץ',
+            toast_metrics_ok:'מטריקות Prometheus נשלפו', toast_metrics_err:'שגיאה בשליפת מטריקות',
+            toast_lang_switched:'הועבר לעברית', label_mem_pressure:'עומס זיכרון',
+            label_uptime:'זמן ריצה', label_heap:'HEAP', label_free_mem:'זיכרון פנוי', label_total_mem:'סה"כ זיכרון'
+        },
+        en: {
+            tab_health:'System Health', health_title:'Live K8s Cluster & Network Monitor',
+            health_sub:'Real-time check of all active Pods, memory usage, and system availability.',
+            card_cluster_health:'CLUSTER HEALTH', card_pods_healthy:'PODS HEALTHY / TOTAL',
+            card_avg_mem:'AVG MEMORY HEAP', last_refresh:'LAST REFRESH',
+            pod_fleet_label:'POD FLEET — LIVE STATUS',
+            stress_title:'🔥 Active CPU Load (CPU Spike)', stress_sub:'Injecting computational load to test Auto-scaling',
+            chaos_title:'💥 Chaos Event: Pod Crashed', chaos_sub:'Waiting for automatic recovery (Self-Healing) from Kubernetes',
+            btn_refresh:'⚡ Refresh Data', btn_stress:'🔥 Stress Simulation', btn_chaos:'💥 Live Pod Crash (Chaos)',
+            api_sub:'Direct data validation against the server endpoints.', api_placeholder:'Select an endpoint to test...',
+            jenkins_sub:'Validate files and configurations injected from the CI/CD pipeline.',
+            btn_jenkins:'🔍 Check Injected File', jenkins_placeholder:'Click to check injected file...',
+            monitoring_sub:'Raw metrics exposed to the monitoring portal.',
+            btn_metrics:'📈 Pull Metrics', metrics_placeholder:'Click to pull metrics...',
+            status_online:'SYSTEM ONLINE', status_offline:'SYSTEM OFFLINE',
+            status_degraded:'DEGRADED', status_crashed:'POD CRASHED',
+            no_pods_msg:'No pods available at the moment...',
+            toast_no_pods:'Unable to reach any Pod', toast_pods_found:'Found {count} active Pods',
+            toast_stress_start:'CPU stress simulation initiated for 8 seconds', toast_stress_end:'Stress simulation complete',
+            toast_chaos_start:'Crash command sent to Pod!',
+            toast_api_call:'Called endpoint {path}', toast_api_err:'Error calling endpoint {path}',
+            toast_jenkins_ok:'Injected file loaded successfully', toast_jenkins_err:'Error loading injected file',
+            toast_metrics_ok:'Prometheus metrics fetched', toast_metrics_err:'Error fetching metrics',
+            toast_lang_switched:'Switched to English', label_mem_pressure:'Memory Pressure',
+            label_uptime:'UPTIME', label_heap:'HEAP', label_free_mem:'FREE MEM', label_total_mem:'TOTAL MEM'
+        }
+    };
+
+    let currentLang = 'he';
+
+    function t(key, params = {}) {
+        let str = (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang][key]) || key;
+        Object.keys(params).forEach(p => { str = str.replace(`{${p}}`, params[p]); });
+        return str;
+    }
+
+    function applyTranslations(lang) {
+        const dict = TRANSLATIONS[lang];
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if (dict[key] !== undefined) el.innerHTML = dict[key];
+        });
+        updateStatusBadge(currentStatusKey);
+        renderPodsGrid(knownPods, currentOfflinePods); // FIX-2: use persisted offline set
+    }
+
+    function updateStatusBadge(statusKey) {
+        if (statusKey) currentStatusKey = statusKey;
+        const badge   = document.getElementById('status-badge');
+        const tStatus = document.getElementById('t-status');
+        if (currentStatusKey === 'online')        { badge.classList.remove('offline'); tStatus.innerText = t('status_online'); }
+        else if (currentStatusKey === 'offline')  { badge.classList.add('offline');    tStatus.innerText = t('status_offline'); }
+        else if (currentStatusKey === 'crashed')  { badge.classList.add('offline');    tStatus.innerText = t('status_crashed'); }
+        else                                      { badge.classList.add('offline');    tStatus.innerText = t('status_degraded'); }
+    }
+
+    function showToast(msg, icon = 'ℹ️') {
+        const c    = document.getElementById('toast-container');
+        const item = document.createElement('div');
+        item.className = 'toast-item';
+        item.innerHTML = `<span>${icon}</span><div>${msg}</div><div class="toast-bar"></div>`;
+        c.appendChild(item);
+        const time = new Date().toLocaleTimeString(currentLang === 'he' ? 'he-IL' : 'en-US');
+        actionLogs.unshift(`[${time}] ${msg}`);
+        document.getElementById('log-count').innerText = actionLogs.length;
+        document.getElementById('log-entries').innerHTML = actionLogs.map(l => `<div class="log-entry">${l}</div>`).join('');
+        setTimeout(() => {
+            item.classList.add('toast-exit');
+            item.addEventListener('animationend', () => item.remove(), { once: true });
+        }, 3000);
+    }
+
+    function toggleActionLog() { document.getElementById('log-content').classList.toggle('open'); }
+
+    function switchTab(tabId, btn) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+    }
+
+    function formatUptime(s) {
+        if (!s || s < 60) return (s || 0) + 's';
+        if (s < 3600) return `${Math.floor(s/60)}m ${s%60}s`;
+        return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+    }
+
+    function memColor(pct) {
+        if (pct > 80) return 'var(--status-red)';
+        if (pct > 55) return 'var(--status-amber)';
+        return 'var(--status-green)';
+    }
+
+    // ─── NETWORK ─────────────────────────────────────────────────────────────
+    async function probeSinglePod() {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 3500); // 3.5s: tolerates stress chunks
+        try {
+            const res = await fetch('/health', { cache: 'no-store', signal: controller.signal });
+            clearTimeout(tid);
+            if (res.ok) return await res.json();
+        } catch (e) { clearTimeout(tid); }
+        return null;
+    }
+
+    async function probeAllPods() {
+        const results = await Promise.all(Array.from({ length: PROBE_COUNT }, () => probeSinglePod()));
+        const discovered = {};
+        results.forEach(d => { if (d && d.pod) discovered[d.pod] = d; });
+        return discovered;
+    }
+
+    // ─── RENDER ──────────────────────────────────────────────────────────────
+    function renderPodsGrid(pods, offlinePods = new Set()) {
+        const grid = document.getElementById('pods-grid');
+        if (Object.keys(pods).length === 0) {
+            grid.innerHTML = `<div style="color:var(--text-muted);font-size:0.85rem;grid-column:1/-1;padding:1rem 0">${t('no_pods_msg')}</div>`;
+            return;
+        }
+        grid.innerHTML = Object.entries(pods).map(([name, d]) => {
+            const isOffline  = offlinePods.has(name);
+            const memPct     = d.totalMemoryMB ? Math.round((d.memoryUsageMB / d.totalMemoryMB) * 100) : 0;
+            const shortName  = name.replace(/^devops-rest-api-/, '');
+            let cardClass = 'pod-card', pillClass = 'pod-status-pill pill-up', pillTxt = 'UP';
+            if (isOffline)        { cardClass += ' pod-offline'; pillClass = 'pod-status-pill pill-down';   pillTxt = 'DOWN'; }
+            else if (isStressActive) { cardClass += ' pod-stress'; pillClass = 'pod-status-pill pill-stress'; pillTxt = 'HIGH CPU'; }
+            return `
+            <div class="${cardClass}">
+                <div class="pod-card-header">
+                    <div class="pod-name" title="${name}">${shortName}</div>
+                    <div class="${pillClass}">${pillTxt}</div>
+                </div>
+                <div class="pod-metrics">
+                    <div class="pod-metric"><div class="pod-metric-label">${t('label_uptime')}</div><div class="pod-metric-val">${formatUptime(d.uptimeSeconds)}</div></div>
+                    <div class="pod-metric"><div class="pod-metric-label">${t('label_heap')}</div><div class="pod-metric-val">${d.memoryUsageMB} MB</div></div>
+                    <div class="pod-metric"><div class="pod-metric-label">${t('label_free_mem')}</div><div class="pod-metric-val">${d.freeMemoryMB} MB</div></div>
+                    <div class="pod-metric"><div class="pod-metric-label">${t('label_total_mem')}</div><div class="pod-metric-val">${d.totalMemoryMB} MB</div></div>
+                </div>
+                <div class="pod-mem-bar">
+                    <div class="pod-mem-bar-label"><span>${t('label_mem_pressure')}</span><span>${memPct}%</span></div>
+                    <div class="pod-mem-track"><div class="pod-mem-fill" style="width:${memPct}%;background:${isStressActive ? 'var(--status-amber)' : memColor(memPct)}"></div></div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function updateSummary(pods, offlinePods = new Set()) {
+        const total   = Object.keys(pods).length;
+        const healthy = total - offlinePods.size;
+        const pct     = total > 0 ? Math.round((healthy / total) * 100) : 0;
+        const scoreEl = document.getElementById('val-score');
+        const color   = pct === 100 ? 'var(--status-green)' : pct > 50 ? 'var(--status-amber)' : 'var(--status-red)';
+        scoreEl.innerText = pct + '%';
+        scoreEl.style.color = color;
+        document.getElementById('score-bar').style.width = pct + '%';
+        document.getElementById('score-bar').style.background = color;
+        document.getElementById('val-pods-ratio').innerText = `${healthy} / ${total}`;
+        const avgMem = total > 0 ? Math.round(Object.values(pods).reduce((a, d) => a + (d.memoryUsageMB || 0), 0) / total) : 0;
+        document.getElementById('val-mem').innerText = avgMem + ' MB';
+        document.getElementById('val-last-refresh').innerText = new Date().toLocaleTimeString(currentLang === 'he' ? 'he-IL' : 'en-US');
+        if (pct === 100) updateStatusBadge('online');
+        else if (pct === 0) updateStatusBadge('offline');
+        else updateStatusBadge('degraded');
+    }
+
+    // ─── REFRESH (FIX-1: promise coalescing) ─────────────────────────────────
+    // All concurrent callers (auto-poll, stress ticker, chaos ticker, manual)
+    // share ONE in-flight request burst. Nothing is locked or blocked.
+    async function refreshAll(silent = false) {
+        if (_refreshPromise) { await _refreshPromise; return; }
+        _refreshPromise = _doRefresh(silent);
+        try { await _refreshPromise; } finally { _refreshPromise = null; }
+    }
+
+    async function _doRefresh(silent) {
+        const discovered = await probeAllPods();
+
+        if (Object.keys(discovered).length === 0) {
+            updateStatusBadge('offline');
+            document.getElementById('val-score').innerText = '0%';
+            document.getElementById('val-score').style.color = 'var(--status-red)';
+            document.getElementById('score-bar').style.width = '0%';
+            document.getElementById('val-pods-ratio').innerText = '0 / ?';
+            if (!silent) showToast(t('toast_no_pods'), '❌');
+            return;
+        }
+
+        Object.keys(discovered).forEach(name => { knownPods[name] = discovered[name]; podMissCount[name] = 0; });
+
+        const offlinePods = new Set();
+        Object.keys(knownPods).forEach(name => {
+            if (!discovered[name]) {
+                podMissCount[name] = (podMissCount[name] || 0) + 1;
+                if (podMissCount[name] >= POD_TTL) { delete knownPods[name]; delete podMissCount[name]; }
+                else { offlinePods.add(name); }
+            }
+        });
+
+        currentOfflinePods = offlinePods; // FIX-2: persist
+
+        renderPodsGrid(knownPods, offlinePods);
+        updateSummary(knownPods, offlinePods);
+
+        if (!silent) showToast(t('toast_pods_found', { count: Object.keys(discovered).length }), '⚡');
+    }
+
+    // ─── SIMULATIONS ─────────────────────────────────────────────────────────
+    function startStressTest() {
+        const panel = document.getElementById('stress-panel');
+        panel.classList.add('active');
+        isStressActive = true;
+        const durationMs = 8000, startTime = Date.now();
+        if (stressTimerId) clearInterval(stressTimerId);
+        showToast(t('toast_stress_start'), '🔥');
+        for (let i = 0; i < 4; i++) fetch('/api/stress?duration=8000').catch(() => {});
+        stressTimerId = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const remainingMs = Math.max(0, durationMs - elapsed);
+            const secondsLeft = Math.ceil(remainingMs / 1000);
+            document.getElementById('stress-timer').innerText = `0${secondsLeft}s`;
+            document.getElementById('stress-bar-fill').style.width = `${(remainingMs / durationMs) * 100}%`;
+            refreshAll(true).catch(() => {});
+            if (remainingMs <= 0) {
+                clearInterval(stressTimerId); stressTimerId = null;
+                isStressActive = false; panel.classList.remove('active');
+                showToast(t('toast_stress_end'), '✅');
+                refreshAll(true).catch(() => {});
+            }
+        }, 1000);
+    }
+
+    function simulateChaos() {
+        const panel = document.getElementById('chaos-panel');
+        panel.classList.add('active');
+        const durationMs = 8000, startTime = Date.now();
+        if (chaosTimerId) clearInterval(chaosTimerId);
+        showToast(t('toast_chaos_start'), '💥');
+        fetch('/api/crash').catch(() => {});
+        chaosTimerId = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const remainingMs = Math.max(0, durationMs - elapsed);
+            const secondsLeft = Math.ceil(remainingMs / 1000);
+            document.getElementById('chaos-timer').innerText = `0${secondsLeft}s`;
+            document.getElementById('chaos-bar-fill').style.width = `${(remainingMs / durationMs) * 100}%`;
+            refreshAll(true).catch(() => {});
+            if (remainingMs <= 0) {
+                clearInterval(chaosTimerId); chaosTimerId = null;
+                panel.classList.remove('active');
+                refreshAll(true).catch(() => {});
+            }
+        }, 1000);
+    }
+
+    // ─── API HELPERS ──────────────────────────────────────────────────────────
+    async function callApi(path) {
+        try {
+            const res    = await fetch(path);
+            const isJson = res.headers.get('content-type')?.includes('application/json');
+            const data   = isJson ? await res.json() : await res.text();
+            let html = '';
+            if (isJson) {
+                html = '<div class="kv-grid">' + Object.entries(data).map(([k,v]) =>
+                    `<div class="kv-item"><div class="kv-key">${k}</div><div class="kv-val">${typeof v === 'object' ? JSON.stringify(v) : v}</div></div>`
+                ).join('') + '</div>';
+            } else { html = `<div class="code-safe-block">${data}</div>`; }
+            document.getElementById('api-output').innerHTML = html;
+            showToast(t('toast_api_call', { path }), '⚡');
+        } catch (e) { showToast(t('toast_api_err', { path }), '❌'); }
+    }
+
+    async function fetchInjectedFile() {
+        try {
+            const res  = await fetch('/injected-file');
+            const data = await res.json();
+            document.getElementById('jenkins-output').innerHTML = `<div class="code-safe-block">${JSON.stringify(data, null, 2)}</div>`;
+            showToast(t('toast_jenkins_ok'), '🛠️');
+        } catch (e) { showToast(t('toast_jenkins_err'), '❌'); }
+    }
+
+    async function fetchMetrics() {
+        try {
+            const res  = await fetch('/metrics');
+            const text = await res.text();
+            document.getElementById('metrics-output').innerHTML = `<div class="code-safe-block">${text}</div>`;
+            showToast(t('toast_metrics_ok'), '📊');
+        } catch (e) { showToast(t('toast_metrics_err'), '❌'); }
+    }
+
+    function toggleLanguage() {
+        currentLang = currentLang === 'he' ? 'en' : 'he';
+        document.documentElement.dir  = currentLang === 'he' ? 'rtl' : 'ltr';
+        document.documentElement.lang = currentLang;
+        applyTranslations(currentLang);
+        showToast(t('toast_lang_switched'), '🌐');
+    }
+
+    // ─── BOOT ────────────────────────────────────────────────────────────────
+    refreshAll(true);
+    setInterval(() => refreshAll(true), 4000);
+</script>
+</body>
+</html>

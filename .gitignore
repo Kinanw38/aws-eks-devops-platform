@@ -1,0 +1,19 @@
+# Credentials & TLS Certificates
+*.pem
+*.key
+*.crt
+*.env
+*.tfvars
+
+# Terraform Local State
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+# Dependencies & OS
+node_modules/
+npm-debug.log*
+.DS_Store
+.idea/
+.vscode/
