@@ -116,7 +116,7 @@ echo -e "\n${GREEN}==> [STEP 5/8] Installing Core Addons (Metrics Server & NGINX
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-helm repo add jenkins https://charts.jenkins.io
+helm repo add jenkins https://charts.jenkins.io --force-update
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
@@ -152,9 +152,15 @@ kubectl apply -f "${PROJECT_ROOT}/kubernetes/"
 
 # 7. התקנת Jenkins ו-Prometheus Stack
 echo -e "\n${GREEN}==> [STEP 8/8] Installing Jenkins & Monitoring Stack via Helm...${NC}"
+
+# ניקוי StatefulSet ו-PVC ישנים למניעת התנגשויות Immutability בריצות חוזרות
+kubectl delete statefulset jenkins -n devops --ignore-not-found >/dev/null 2>&1
+kubectl delete pvc --selector app.kubernetes.io/instance=jenkins -n devops --ignore-not-found >/dev/null 2>&1
+
 helm upgrade --install jenkins jenkins/jenkins \
   --namespace devops \
   -f "${PROJECT_ROOT}/jenkins/values.yaml" \
+  --set persistence.enabled=false \
   --set controller.extraEnvVars[0].name=DOCKER_HUB_USER \
   --set controller.extraEnvVars[0].value="${DOCKERHUB_USERNAME}" \
   --set controller.extraEnvVars[1].name=DOCKER_HUB_PAT \
@@ -165,9 +171,12 @@ helm upgrade --install jenkins jenkins/jenkins \
 helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
   --namespace monitoring --create-namespace
 
-# 8. המתנה לזמינות האפליקציה והדפסת תוצאות
-echo -e "\n${YELLOW}==> Waiting for Application Deployment to be Ready...${NC}"
+# 8. המתנה לזמינות מלאה של האפליקציה ושל Jenkins
+echo -e "\n${YELLOW}==> Waiting for REST API Application to be Ready...${NC}"
 kubectl rollout status deployment/devops-rest-api -n devops --timeout=180s
+
+echo -e "\n${YELLOW}==> Waiting for Jenkins Controller to be Ready (JCasC Bootstrapping)...${NC}"
+kubectl rollout status statefulset/jenkins -n devops --timeout=300s
 
 echo -e "\n${YELLOW}==> Fetching AWS External LoadBalancer Address...${NC}"
 LB_HOST=""

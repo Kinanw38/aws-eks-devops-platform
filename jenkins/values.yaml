@@ -1,3 +1,6 @@
+persistence:
+  enabled: false
+
 controller:
   componentName: "jenkins-controller"
   image:
@@ -7,15 +10,15 @@ controller:
   serviceType: "ClusterIP"
   jenkinsUriPrefix: "/jenkins"
 
-  javaOpts: "-Djenkins.install.runSetupWizard=false"
+  javaOpts: "-Djenkins.install.runSetupWizard=false -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=300"
 
   resources:
     requests:
-      cpu: "300m"
-      memory: "512Mi"
+      cpu: "500m"
+      memory: "1024Mi"
     limits:
-      cpu: "1000m"
-      memory: "1536Mi"
+      cpu: "2000m"
+      memory: "2048Mi"
 
   installPlugins:
     - "kubernetes"
@@ -24,9 +27,8 @@ controller:
     - "workflow-aggregator"
     - "pipeline-stage-view"
     - "job-dsl"
-
-  persistence:
-    enabled: false
+    - "theme-manager"
+    - "dark-theme"
 
   JCasC:
     enabled: true
@@ -39,14 +41,20 @@ controller:
               - credentials:
                   - usernamePassword:
                       scope: GLOBAL
-                      id: "dockerhub-credentials"
+                      id: "dockerhub-credentials-id"
                       username: "${DOCKER_HUB_USER}"
                       password: "${DOCKER_HUB_PAT}"
                       description: "Docker Hub Credentials"
+                  - usernamePassword:
+                      scope: GLOBAL
+                      id: "dockerhub-credentials"
+                      username: "${DOCKER_HUB_USER}"
+                      password: "${DOCKER_HUB_PAT}"
+                      description: "Docker Hub Credentials Alt"
       jobs-config: |
         jobs:
           - script: |
-              def gitRepo = System.getenv('GIT_REPO_URL')
+              def gitRepo = System.getenv('GIT_REPO_URL') ?: 'https://github.com/Kinanw38/aws-eks-devops-platform.git'
               pipelineJob('1-CI-CD-Pipeline') {
                 definition {
                   cpsScm {
@@ -101,6 +109,13 @@ agent:
     default:
       name: "k8s-agent"
       label: "jenkins-agent"
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "512Mi"
+        limits:
+          cpu: "1000m"
+          memory: "1024Mi"
       workspaceVolume:
         emptyDirWorkspaceVolume:
           memory: false
